@@ -33,6 +33,8 @@ final class AppModel: ObservableObject {
     private var submitted = Set<String>()
     private var sonosToken: SonosToken?
     private var lastMediaKeyGroupID: String?
+    private var mediaKeyCommandInFlight = false
+    private var lastMediaKeyCommandAt = Date.distantPast
 
     var settings: AppSettings { store.load() }
     var isConfigured: Bool {
@@ -97,6 +99,10 @@ final class AppModel: ObservableObject {
     }
 
     private func toggleSonosPlayback() async {
+        guard !mediaKeyCommandInFlight, Date().timeIntervalSince(lastMediaKeyCommandAt) > 0.75 else { return }
+        mediaKeyCommandInFlight = true
+        lastMediaKeyCommandAt = Date()
+        defer { mediaKeyCommandInFlight = false }
         let sonos = settings
         guard !sonos.sonosClientID.isEmpty, !sonos.sonosClientSecret.isEmpty, !sonos.sonosRefreshToken.isEmpty else {
             status = "Configure Sonos before using the media key."

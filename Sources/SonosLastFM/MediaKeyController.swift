@@ -35,8 +35,9 @@ final class MediaKeyController {
         guard let event = NSEvent(cgEvent: event), event.subtype.rawValue == 8 else { return false }
         let keyCode = (event.data1 & 0xFFFF0000) >> 16
         let keyState = (event.data1 & 0xFF00) >> 8
-        guard keyCode == 16, keyState == 0xA else { return false } // NX_KEYTYPE_PLAY, key down
-        onPlayPause?()
+        guard keyCode == 16 else { return false } // NX_KEYTYPE_PLAY
+        if keyState == 0xA { onPlayPause?() } // key down
+        // Consume both press and release so macOS does not also forward this key to another player.
         return true
     }
 
