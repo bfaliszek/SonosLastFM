@@ -11,7 +11,7 @@ swift build -c release
 .build/release/SonosLastFM
 ```
 
-The ready-to-run application bundle is also available at `build/SonosLastFM.app`.
+The ready-to-run application bundle is also available at `build/SonosLastFM.zip`.
 
 ## Sonos setup
 
