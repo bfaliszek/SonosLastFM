@@ -1,0 +1,66 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "SonosLastFM-arm64-apple-macosx-release.exe": ["<SonosLastFM-arm64-apple-macosx-release.exe>"]
+  "SonosLastFM-arm64-apple-macosx-release.module": ["<SonosLastFM-arm64-apple-macosx-release.module>"]
+  "main": ["<SonosLastFM-arm64-apple-macosx-release.exe>","<SonosLastFM-arm64-apple-macosx-release.module>"]
+  "test": ["<SonosLastFM-arm64-apple-macosx-release.exe>","<SonosLastFM-arm64-apple-macosx-release.module>"]
+default: "main"
+nodes:
+  "/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/AppModel.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/MediaKeyController.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/SecureStorage.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/Services.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/SonosLastFMApp.swift"]
+    outputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/sources"]
+    description: "Write auxiliary file /Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/sources"
+
+  "/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/AppModel.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/MediaKeyController.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SecureStorage.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/Services.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SonosLastFMApp.swift.o"]
+    outputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.product/Objects.LinkFileList"
+
+  "/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+
+  "<SonosLastFM-arm64-apple-macosx-release.exe>":
+    tool: phony
+    inputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM"]
+    outputs: ["<SonosLastFM-arm64-apple-macosx-release.exe>"]
+
+  "<SonosLastFM-arm64-apple-macosx-release.module>":
+    tool: phony
+    inputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/AppModel.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/MediaKeyController.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SecureStorage.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/Services.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SonosLastFMApp.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/Modules/SonosLastFM.swiftmodule"]
+    outputs: ["<SonosLastFM-arm64-apple-macosx-release.module>"]
+
+  "C.SonosLastFM-arm64-apple-macosx-release.exe":
+    tool: shell
+    inputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/AppModel.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/MediaKeyController.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SecureStorage.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/Services.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SonosLastFMApp.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.product/Objects.LinkFileList"]
+    outputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM"]
+    description: "Linking ./.build/arm64-apple-macosx/release/SonosLastFM"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release","-o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM","-module-name","SonosLastFM","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-dead_strip","-Xlinker","-alias","-Xlinker","_SonosLastFM_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx13.0","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.SonosLastFM-arm64-apple-macosx-release.module":
+    tool: shell
+    inputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/AppModel.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/MediaKeyController.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/SecureStorage.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/Services.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/SonosLastFMApp.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/sources"]
+    outputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/AppModel.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/MediaKeyController.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SecureStorage.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/Services.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/SonosLastFMApp.swift.o","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/Modules/SonosLastFM.swiftmodule"]
+    description: "Compiling Swift Module 'SonosLastFM' (5 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","SonosLastFM","-emit-dependencies","-emit-module","-emit-module-path","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/Modules/SonosLastFM.swiftmodule","-output-file-map","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/output-file-map.json","-whole-module-optimization","-num-threads","10","-c","@/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/SonosLastFM.build/sources","-I","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/Modules","-target","arm64-apple-macosx13.0","-whole-module-optimization","-num-threads","10","-serialize-diagnostics","-O","-j10","-DSWIFT_PACKAGE","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/bfaliszek/Documents/GitHub/SonosLastFM/.build/arm64-apple-macosx/release/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","SonosLastFM_main","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","sonoslastfm"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/bfaliszek/Documents/GitHub/SonosLastFM/Sources/SonosLastFM/","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Package.swift","/Users/bfaliszek/Documents/GitHub/SonosLastFM/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

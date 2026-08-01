@@ -58,7 +58,7 @@ private struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Sonos") {
+            Section("Sonos Connection") {
                 TextField("Sonos Key (OAuth Client ID)", text: $sonosClientID)
                 SecureField("Sonos Secret (OAuth Client Secret)", text: $sonosClientSecret)
                 SecureField("Sonos Refresh Token", text: $sonosRefreshToken)
@@ -70,6 +70,22 @@ private struct SettingsView: View {
                     Task { await model.testSonosConnection(); isTestingSonos = false }
                 }
                 .disabled(isTestingSonos || sonosClientID.isEmpty || sonosClientSecret.isEmpty || sonosRefreshToken.isEmpty)
+            }
+
+            Section("Mac Media Keys") {
+                Toggle("Use Mac Play/Pause key to control Sonos", isOn: $model.mediaKeysEnabled)
+                    .onChange(of: model.mediaKeysEnabled) { enabled in model.setMediaKeys(enabled: enabled) }
+                Text("Requires Accessibility access. While enabled, the global Play/Pause key pauses or resumes the last Sonos group it controlled.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("Open Accessibility Settings", destination: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                Text("After granting access, return here and enable the switch again.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Startup") {
+                Toggle("Launch Sonos → Last.fm when you log in", isOn: $model.launchAtLoginEnabled)
+                    .onChange(of: model.launchAtLoginEnabled) { enabled in model.setLaunchAtLogin(enabled: enabled) }
+                Text("macOS may ask you to approve this app as a login item.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Last.fm") {
                 TextField("Last.fm API Key", text: $lastFMKey)

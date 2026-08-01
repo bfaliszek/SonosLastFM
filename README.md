@@ -73,6 +73,14 @@ The JSON response contains `refresh_token`. Enter the following in the app:
 
 Click **Save**, then **Test Sonos connection**. An Event Callback URL is not needed by this version of the app, since it polls the API rather than subscribing to events.
 
+### Mac Play/Pause media key
+
+Enable **Use Mac Play/Pause key to control Sonos** in the **Mac Media Keys** section of Settings. Grant the app Accessibility permission in **System Settings → Privacy & Security → Accessibility**; the app includes an **Open Accessibility Settings** link for this purpose. After granting access, return to the app and enable the switch again. The global Play/Pause key pauses and resumes the same Sonos group.
+
+## Launch at login
+
+Enable **Launch Sonos → Last.fm when you log in** in the **Startup** section of Settings. macOS may ask you to approve the app as a login item.
+
 ## Last.fm setup
 
 1. Create an application on the [Last.fm API account page](https://www.last.fm/api/account/create).

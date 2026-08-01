@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ServiceManagement
 
 struct AppSettings: Codable, Equatable {
     var sonosClientID = ""
@@ -22,17 +23,26 @@ final class AppModel: ObservableObject {
     @Published var currentTrack: Track?
     @Published var status = "Open Settings to connect your accounts."
     @Published var isRunning = UserDefaults.standard.bool(forKey: "scrobblingEnabled")
+    @Published var mediaKeysEnabled = UserDefaults.standard.bool(forKey: "mediaKeysEnabled")
+    @Published var launchAtLoginEnabled = false
 
     private let store = SettingsStore()
+    private let mediaKeyController = MediaKeyController()
     private var timer: Timer?
     private var startedAt: Date?
     private var submitted = Set<String>()
     private var sonosToken: SonosToken?
+    private var lastMediaKeyGroupID: String?
 
     var settings: AppSettings { store.load() }
     var isConfigured: Bool {
         let s = settings
         return !s.sonosClientID.isEmpty && !s.sonosClientSecret.isEmpty && !s.sonosRefreshToken.isEmpty && !s.lastFMKey.isEmpty && !s.lastFMSecret.isEmpty && !s.lastFMSession.isEmpty
+    }
+
+    init() {
+        launchAtLoginEnabled = SMAppService.mainApp.status == .enabled
+        if mediaKeysEnabled { enableMediaKeys() }
     }
 
     func save(_ settings: AppSettings) {
@@ -53,6 +63,54 @@ final class AppModel: ObservableObject {
     }
 
     func stop() { timer?.invalidate(); timer = nil; UserDefaults.standard.set(false, forKey: "scrobblingEnabled"); status = "Paused." }
+
+    func setMediaKeys(enabled: Bool) {
+        mediaKeysEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "mediaKeysEnabled")
+        enabled ? enableMediaKeys() : mediaKeyController.stop()
+    }
+
+    func setLaunchAtLogin(enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            launchAtLoginEnabled = SMAppService.mainApp.status == .enabled
+            status = launchAtLoginEnabled ? "Launch at login enabled." : "Launch at login disabled."
+        } catch {
+            launchAtLoginEnabled = SMAppService.mainApp.status == .enabled
+            status = "Could not update launch at login: \(error.localizedDescription)"
+        }
+    }
+
+    private func enableMediaKeys() {
+        let enabled = mediaKeyController.start { [weak self] in
+            Task { await self?.toggleSonosPlayback() }
+        }
+        if !enabled {
+            mediaKeysEnabled = false
+            UserDefaults.standard.set(false, forKey: "mediaKeysEnabled")
+            status = "Allow Accessibility access in System Settings to use the global Play/Pause key."
+        }
+    }
+
+    private func toggleSonosPlayback() async {
+        let sonos = settings
+        guard !sonos.sonosClientID.isEmpty, !sonos.sonosClientSecret.isEmpty, !sonos.sonosRefreshToken.isEmpty else {
+            status = "Configure Sonos before using the media key."
+            return
+        }
+        do {
+            let token = try await validSonosToken()
+            let result = try await SonosClient(accessToken: token.accessToken).togglePlayback(preferredGroupID: lastMediaKeyGroupID)
+            lastMediaKeyGroupID = result.groupID
+            status = result.isPlaying ? "Sonos playing" : "Sonos paused"
+        } catch {
+            status = "Sonos media key failed: \(error.localizedDescription)"
+        }
+    }
 
     func connectLastFM(apiKey: String, sharedSecret: String) async -> String? {
         guard !apiKey.isEmpty, !sharedSecret.isEmpty else {
@@ -89,7 +147,7 @@ final class AppModel: ObservableObject {
         do {
             let token = try await validSonosToken()
             let track = try await SonosClient(accessToken: token.accessToken).currentlyPlaying()
-            guard let track else { status = "Sonos nic nie odtwarza."; return }
+            guard let track else { status = "Sonos is not playing anything."; return }
             if track != currentTrack { currentTrack = track; startedAt = Date(); status = "Playback detected"; try await LastFMClient(settings: settings).updateNowPlaying(track) }
             await scrobbleIfDue(track)
         } catch { status = "Error: \(error.localizedDescription)" }
