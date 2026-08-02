@@ -1,6 +1,6 @@
 # SonosLastFM App (macOS)
 
-<img width="128" height="128" alt="icon_512x512@2x" src="https://github.com/user-attachments/assets/8adc9974-66ca-4fe1-bf3a-0867c2834c73" />
+<img width="128" height="128" alt="icon_512x512@2x" src="https://github.com/bfaliszek/SonosLastFM/blob/main/Assets/AppIcon.iconset/icon_512x512%402x.png" />
 
 
 A native macOS menu-bar app. Every 15 seconds it checks the currently playing track through the Sonos Cloud Control API, sends a “Now Playing” update to Last.fm, and scrobbles the track after at least half of it has been played (up to 240 seconds).
