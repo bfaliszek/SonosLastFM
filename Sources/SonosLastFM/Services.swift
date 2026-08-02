@@ -8,6 +8,61 @@ enum ServiceError: LocalizedError { case missingRefreshToken, response(String), 
     var errorDescription: String? { switch self { case .missingRefreshToken: return "Sonos Refresh Token is missing — complete OAuth authorization."; case .response(let message): return message; case .invalidData: return "Invalid server response." } }
 }
 
+struct AppRelease: Decodable {
+    let tagName: String
+    let htmlURL: URL
+    let draft: Bool
+    let prerelease: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case htmlURL = "html_url"
+        case draft, prerelease
+    }
+}
+
+struct GitHubReleaseClient {
+    func newerRelease(than currentVersion: String) async throws -> AppRelease? {
+        guard let current = VersionNumber(currentVersion) else { return nil }
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/bfaliszek/SonosLastFM/releases")!)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("SonosLastFM", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw ServiceError.response("GitHub releases could not be checked.")
+        }
+        let releases = try JSONDecoder().decode([AppRelease].self, from: data)
+        return releases
+            .filter { !$0.draft && !$0.prerelease }
+            .compactMap { release in VersionNumber(release.tagName).map { ($0, release) } }
+            .filter { $0.0 > current }
+            .max { $0.0 < $1.0 }?
+            .1
+    }
+}
+
+struct VersionNumber: Comparable {
+    let parts: [Int]
+
+    init?(_ string: String) {
+        let value = string.hasPrefix("v") || string.hasPrefix("V") ? String(string.dropFirst()) : string
+        let core = value.split(separator: "-", maxSplits: 1).first.map(String.init) ?? value
+        let parts = core.split(separator: ".").compactMap { Int($0) }
+        guard !parts.isEmpty, core.split(separator: ".").count == parts.count else { return nil }
+        self.parts = parts
+    }
+
+    static func < (lhs: VersionNumber, rhs: VersionNumber) -> Bool {
+        let count = max(lhs.parts.count, rhs.parts.count)
+        for index in 0..<count {
+            let left = index < lhs.parts.count ? lhs.parts[index] : 0
+            let right = index < rhs.parts.count ? rhs.parts[index] : 0
+            if left != right { return left < right }
+        }
+        return false
+    }
+}
+
 struct SonosAuth {
     let settings: AppSettings
     func refreshToken() async throws -> SonosToken {
@@ -60,6 +115,18 @@ struct SonosClient {
             throw ServiceError.response("Sonos could not \(action) the active group.")
         }
         return (shouldPlay, group.id)
+    }
+
+    func skipTrack(next: Bool, preferredGroupID: String?) async throws -> String {
+        let group = try await activeGroup(preferredGroupID: preferredGroupID)
+        let action = next ? "skipToNextTrack" : "skipToPreviousTrack"
+        var request = authorizedRequest("https://api.ws.sonos.com/control/api/v1/groups/\(group.id.urlPathEncoded)/playback/\(action)")
+        request.httpMethod = "POST"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw ServiceError.response("Sonos could not skip the active group’s track.")
+        }
+        return group.id
     }
 
     private func activeGroup(preferredGroupID: String? = nil) async throws -> (id: String, playbackState: String) {

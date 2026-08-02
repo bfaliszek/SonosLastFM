@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import ServiceManagement
+import AppKit
 
 struct AppSettings: Codable, Equatable {
     var sonosClientID = ""
@@ -25,10 +26,13 @@ final class AppModel: ObservableObject {
     @Published var isRunning = UserDefaults.standard.bool(forKey: "scrobblingEnabled")
     @Published var mediaKeysEnabled = UserDefaults.standard.bool(forKey: "mediaKeysEnabled")
     @Published var launchAtLoginEnabled = false
+    @Published var updateChecksEnabled = UserDefaults.standard.object(forKey: "updateChecksEnabled") as? Bool ?? true
 
     private let store = SettingsStore()
     private let mediaKeyController = MediaKeyController()
     private var timer: Timer?
+    private var updateTimer: Timer?
+    private var updateCheckInFlight = false
     private var startedAt: Date?
     private var submitted = Set<String>()
     private var sonosToken: SonosToken?
@@ -45,6 +49,7 @@ final class AppModel: ObservableObject {
     init() {
         launchAtLoginEnabled = SMAppService.mainApp.status == .enabled
         if mediaKeysEnabled { enableMediaKeys() }
+        if updateChecksEnabled { startUpdateChecks() }
     }
 
     func save(_ settings: AppSettings) {
@@ -87,14 +92,62 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func enableMediaKeys() {
-        let enabled = mediaKeyController.start { [weak self] in
-            Task { await self?.toggleSonosPlayback() }
+    func setUpdateChecks(enabled: Bool) {
+        updateChecksEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "updateChecksEnabled")
+        if enabled {
+            startUpdateChecks()
+        } else {
+            updateTimer?.invalidate()
+            updateTimer = nil
         }
+    }
+
+    private func startUpdateChecks() {
+        updateTimer?.invalidate()
+        Task { await checkForUpdates() }
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
+            Task { await self?.checkForUpdates() }
+        }
+    }
+
+    private func checkForUpdates() async {
+        guard !updateCheckInFlight else { return }
+        updateCheckInFlight = true
+        defer { updateCheckInFlight = false }
+        do {
+            guard let release = try await GitHubReleaseClient().newerRelease(than: AppVersion.current) else { return }
+            let notificationKey = "lastUpdateNotificationTag"
+            guard UserDefaults.standard.string(forKey: notificationKey) != release.tagName else { return }
+            UserDefaults.standard.set(release.tagName, forKey: notificationKey)
+            presentUpdateAlert(release)
+        } catch {
+            // Update checks are silent: a temporary network or GitHub error must not interrupt scrobbling.
+        }
+    }
+
+    private func presentUpdateAlert(_ release: AppRelease) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "A new version of SonosLastFM is available"
+        alert.informativeText = "Version \(release.tagName) is available. You are using version \(AppVersion.current)."
+        alert.addButton(withTitle: "Download")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(release.htmlURL)
+        }
+    }
+
+    private func enableMediaKeys() {
+        let enabled = mediaKeyController.start(
+            onPrevious: { [weak self] in Task { await self?.skipSonosTrack(next: false) } },
+            onPlayPause: { [weak self] in Task { await self?.toggleSonosPlayback() } },
+            onNext: { [weak self] in Task { await self?.skipSonosTrack(next: true) } }
+        )
         if !enabled {
             mediaKeysEnabled = false
             UserDefaults.standard.set(false, forKey: "mediaKeysEnabled")
-            status = "Allow Accessibility access in System Settings to use the global Play/Pause key."
+            status = "Allow Accessibility access in System Settings to use the global media keys."
         }
     }
 
@@ -113,6 +166,25 @@ final class AppModel: ObservableObject {
             let result = try await SonosClient(accessToken: token.accessToken).togglePlayback(preferredGroupID: lastMediaKeyGroupID)
             lastMediaKeyGroupID = result.groupID
             status = result.isPlaying ? "Sonos playing" : "Sonos paused"
+        } catch {
+            status = "Sonos media key failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func skipSonosTrack(next: Bool) async {
+        guard !mediaKeyCommandInFlight, Date().timeIntervalSince(lastMediaKeyCommandAt) > 0.75 else { return }
+        mediaKeyCommandInFlight = true
+        lastMediaKeyCommandAt = Date()
+        defer { mediaKeyCommandInFlight = false }
+        let sonos = settings
+        guard !sonos.sonosClientID.isEmpty, !sonos.sonosClientSecret.isEmpty, !sonos.sonosRefreshToken.isEmpty else {
+            status = "Configure Sonos before using the media keys."
+            return
+        }
+        do {
+            let token = try await validSonosToken()
+            lastMediaKeyGroupID = try await SonosClient(accessToken: token.accessToken).skipTrack(next: next, preferredGroupID: lastMediaKeyGroupID)
+            status = next ? "Skipped to next Sonos track" : "Skipped to previous Sonos track"
         } catch {
             status = "Sonos media key failed: \(error.localizedDescription)"
         }
@@ -181,6 +253,10 @@ final class AppModel: ObservableObject {
         sonosToken = token
         return token
     }
+}
+
+enum AppVersion {
+    static let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
 }
 
 private extension AppSettings {

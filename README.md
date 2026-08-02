@@ -73,9 +73,9 @@ The JSON response contains `refresh_token`. Enter the following in the app:
 
 Click **Save**, then **Test Sonos connection**. An Event Callback URL is not needed by this version of the app, since it polls the API rather than subscribing to events.
 
-### Mac Play/Pause media key
+### Mac media keys
 
-Enable **Use Mac Play/Pause key to control Sonos** in the **Mac Media Keys** section of Settings. Grant the app Accessibility permission in **System Settings → Privacy & Security → Accessibility**; the app includes an **Open Accessibility Settings** link for this purpose. After granting access, return to the app and enable the switch again. The global Play/Pause key pauses and resumes the same Sonos group.
+Enable **Use Mac media keys to control Sonos** in the **Mac Media Keys** section of Settings. Grant the app Accessibility permission in **System Settings → Privacy & Security → Accessibility**; the app includes an **Open Accessibility Settings** link for this purpose. After granting access, return to the app and enable the switch again. The global Play/Pause key pauses or resumes the same Sonos group, while Previous and Next skip tracks in that group.
 
 ## Launch at login
 
