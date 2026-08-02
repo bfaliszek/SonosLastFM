@@ -1,4 +1,4 @@
-# Sonos → Last.fm (macOS)
+# SonosLastFM App (macOS)
 
 A native macOS menu-bar app. Every 15 seconds it checks the currently playing track through the Sonos Cloud Control API, sends a “Now Playing” update to Last.fm, and scrobbles the track after at least half of it has been played (up to 240 seconds).
 
