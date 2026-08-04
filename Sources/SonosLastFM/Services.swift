@@ -90,8 +90,11 @@ struct SonosAuth {
 struct SonosClient {
     let accessToken: String
 
-    func currentlyPlaying() async throws -> Track? {
-        let group = try await activeGroup()
+    func currentlyPlaying(preferredGroupID: String?) async throws -> Track? {
+        let group = try await activeGroup(preferredGroupID: preferredGroupID)
+        // playbackMetadata can retain the last track while a group is paused or idle.
+        // Never treat that cached metadata as active playback or send it to Last.fm.
+        guard group.playbackState == "PLAYBACK_STATE_PLAYING" else { return nil }
         let request = authorizedRequest("https://api.ws.sonos.com/control/api/v1/groups/\(group.id.urlPathEncoded)/playbackMetadata")
         let (data, metadataResponse) = try await URLSession.shared.data(for: request)
         guard (metadataResponse as? HTTPURLResponse)?.statusCode == 200 else { return nil }
@@ -129,7 +132,20 @@ struct SonosClient {
         return group.id
     }
 
+    func groups() async throws -> [SonosGroup] {
+        try await availableGroups().sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     private func activeGroup(preferredGroupID: String? = nil) async throws -> (id: String, playbackState: String) {
+        let availableGroups = try await availableGroups()
+        guard let group = availableGroups.first(where: { $0.id == preferredGroupID })
+            ?? availableGroups.first(where: { $0.playbackState == "PLAYBACK_STATE_PLAYING" })
+            ?? availableGroups.first(where: { $0.playbackState == "PLAYBACK_STATE_PAUSED" })
+            ?? availableGroups.first else { throw ServiceError.response("No Sonos group is available.") }
+        return (group.id, group.playbackState)
+    }
+
+    private func availableGroups() async throws -> [SonosGroup] {
         var request = URLRequest(url: URL(string: "https://api.ws.sonos.com/control/api/v1/households")!)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let (households, response) = try await URLSession.shared.data(for: request)
@@ -138,15 +154,14 @@ struct SonosClient {
               let household = (householdList["households"] as? [[String: Any]])?.first,
               let id = household["id"] as? String else { throw ServiceError.invalidData }
         request.url = URL(string: "https://api.ws.sonos.com/control/api/v1/households/\(id.urlPathEncoded)/groups")!
-        let (groups, _) = try await URLSession.shared.data(for: request)
+        let (groups, groupsResponse) = try await URLSession.shared.data(for: request)
+        guard (groupsResponse as? HTTPURLResponse)?.statusCode == 200 else { throw ServiceError.response("Unable to read Sonos groups.") }
         guard let groupsBody = try JSONSerialization.jsonObject(with: groups) as? [String: Any],
-              let availableGroups = groupsBody["groups"] as? [[String: Any]],
-              let group = availableGroups.first(where: { ($0["id"] as? String) == preferredGroupID })
-                  ?? availableGroups.first(where: { ($0["playbackState"] as? String) == "PLAYBACK_STATE_PLAYING" })
-                  ?? availableGroups.first(where: { ($0["playbackState"] as? String) == "PLAYBACK_STATE_PAUSED" })
-                  ?? availableGroups.first,
-              let groupID = group["id"] as? String else { throw ServiceError.response("No Sonos group is available.") }
-        return (groupID, group["playbackState"] as? String ?? "PLAYBACK_STATE_IDLE")
+              let groupsList = groupsBody["groups"] as? [[String: Any]] else { throw ServiceError.invalidData }
+        return groupsList.compactMap { group in
+            guard let id = group["id"] as? String else { return nil }
+            return SonosGroup(id: id, name: (group["name"] as? String) ?? "Unnamed Sonos group", playbackState: (group["playbackState"] as? String) ?? "PLAYBACK_STATE_IDLE")
+        }
     }
 
     private func authorizedRequest(_ address: String) -> URLRequest {

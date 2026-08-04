@@ -31,6 +31,24 @@ private struct MenuView: View {
                 Text(model.status).foregroundStyle(.secondary)
             }
             Divider()
+            if model.sonosGroups.isEmpty {
+                Button(model.isLoadingSonosGroups ? "Loading Sonos speakers…" : "Load Sonos speakers") {
+                    Task { await model.loadSonosGroups() }
+                }
+                .disabled(model.isLoadingSonosGroups)
+            } else {
+                Picker("Sonos speaker", selection: Binding(
+                    get: { model.settings.sonosGroupID },
+                    set: { model.selectSonosGroup($0) }
+                )) {
+                    Text("Automatic selection").tag(String?.none)
+                    ForEach(model.sonosGroups) { group in
+                        Text(group.name).tag(Optional(group.id))
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            Divider()
             Toggle("Scrobbling enabled", isOn: $model.isRunning)
                 .toggleStyle(.switch)
                 .onChange(of: model.isRunning) { enabled in enabled ? model.start() : model.stop() }
@@ -40,7 +58,10 @@ private struct MenuView: View {
         }
         .padding()
         .frame(width: 300)
-        .task { model.startIfEnabled() }
+        .task {
+            model.startIfEnabled()
+            await model.loadSonosGroups()
+        }
     }
 }
 
@@ -49,6 +70,7 @@ private struct SettingsView: View {
     @State private var sonosClientID = ""
     @State private var sonosClientSecret = ""
     @State private var sonosRefreshToken = ""
+    @State private var sonosGroupID: String?
     @State private var lastFMKey = ""
     @State private var lastFMSecret = ""
     @State private var lastFMSession = ""
@@ -79,7 +101,7 @@ private struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Button(isTestingSonos ? "Testing Sonos…" : "Test Sonos connection") {
                     isTestingSonos = true
-                    model.save(AppSettings(sonosClientID: sonosClientID, sonosClientSecret: sonosClientSecret, sonosRefreshToken: sonosRefreshToken, lastFMKey: lastFMKey, lastFMSecret: lastFMSecret, lastFMSession: lastFMSession))
+                    save()
                     Task { await model.testSonosConnection(); isTestingSonos = false }
                 }
                 .disabled(isTestingSonos || sonosClientID.isEmpty || sonosClientSecret.isEmpty || sonosRefreshToken.isEmpty)
@@ -96,7 +118,7 @@ private struct SettingsView: View {
                 Toggle("Use Mac media keys to control Sonos", isOn: $model.mediaKeysEnabled)
                     .toggleStyle(.switch)
                     .onChange(of: model.mediaKeysEnabled) { enabled in model.setMediaKeys(enabled: enabled) }
-                Text("Requires Accessibility access. Play/Pause pauses or resumes, and Previous/Next skip tracks in the last Sonos group controlled.")
+                Text("Requires Accessibility access. Play/Pause pauses or resumes, and Previous/Next skip tracks in the selected Sonos group.")
                     .font(.caption).foregroundStyle(.secondary)
                 Link("Open Accessibility Settings", destination: URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                 Text("After granting access, return here and enable the switch again.")
@@ -173,13 +195,14 @@ private struct SettingsView: View {
     }
 
     private func save() {
-        model.save(AppSettings(sonosClientID: sonosClientID, sonosClientSecret: sonosClientSecret, sonosRefreshToken: sonosRefreshToken, lastFMKey: lastFMKey, lastFMSecret: lastFMSecret, lastFMSession: lastFMSession))
+        model.save(AppSettings(sonosClientID: sonosClientID, sonosClientSecret: sonosClientSecret, sonosRefreshToken: sonosRefreshToken, sonosGroupID: sonosGroupID, lastFMKey: lastFMKey, lastFMSecret: lastFMSecret, lastFMSession: lastFMSession))
     }
 
     private func load() {
         let s = model.settings
         sonosClientID = s.sonosClientID; sonosClientSecret = s.sonosClientSecret
         sonosRefreshToken = s.sonosRefreshToken
+        sonosGroupID = s.sonosGroupID
         lastFMKey = s.lastFMKey; lastFMSecret = s.lastFMSecret; lastFMSession = s.lastFMSession
     }
 }

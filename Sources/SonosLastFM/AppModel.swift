@@ -7,6 +7,7 @@ struct AppSettings: Codable, Equatable {
     var sonosClientID = ""
     var sonosClientSecret = ""
     var sonosRefreshToken = ""
+    var sonosGroupID: String?
     var lastFMKey = ""
     var lastFMSecret = ""
     var lastFMSession = ""
@@ -19,6 +20,12 @@ struct Track: Hashable {
     let duration: Int?
 }
 
+struct SonosGroup: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let playbackState: String
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var currentTrack: Track?
@@ -27,6 +34,8 @@ final class AppModel: ObservableObject {
     @Published var mediaKeysEnabled = UserDefaults.standard.bool(forKey: "mediaKeysEnabled")
     @Published var launchAtLoginEnabled = false
     @Published var updateChecksEnabled = UserDefaults.standard.object(forKey: "updateChecksEnabled") as? Bool ?? true
+    @Published var sonosGroups: [SonosGroup] = []
+    @Published var isLoadingSonosGroups = false
 
     private let store = SettingsStore()
     private let mediaKeyController = MediaKeyController()
@@ -163,7 +172,7 @@ final class AppModel: ObservableObject {
         }
         do {
             let token = try await validSonosToken()
-            let result = try await SonosClient(accessToken: token.accessToken).togglePlayback(preferredGroupID: lastMediaKeyGroupID)
+            let result = try await SonosClient(accessToken: token.accessToken).togglePlayback(preferredGroupID: settings.sonosGroupID ?? lastMediaKeyGroupID)
             lastMediaKeyGroupID = result.groupID
             status = result.isPlaying ? "Sonos playing" : "Sonos paused"
         } catch {
@@ -183,7 +192,7 @@ final class AppModel: ObservableObject {
         }
         do {
             let token = try await validSonosToken()
-            lastMediaKeyGroupID = try await SonosClient(accessToken: token.accessToken).skipTrack(next: next, preferredGroupID: lastMediaKeyGroupID)
+            lastMediaKeyGroupID = try await SonosClient(accessToken: token.accessToken).skipTrack(next: next, preferredGroupID: settings.sonosGroupID ?? lastMediaKeyGroupID)
             status = next ? "Skipped to next Sonos track" : "Skipped to previous Sonos track"
         } catch {
             status = "Sonos media key failed: \(error.localizedDescription)"
@@ -220,12 +229,47 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func loadSonosGroups() async {
+        guard !isLoadingSonosGroups else { return }
+        let sonos = settings
+        guard !sonos.sonosClientID.isEmpty, !sonos.sonosClientSecret.isEmpty, !sonos.sonosRefreshToken.isEmpty else {
+            status = "Save all Sonos credentials first."
+            return
+        }
+        isLoadingSonosGroups = true
+        defer { isLoadingSonosGroups = false }
+        do {
+            let token = try await validSonosToken()
+            sonosGroups = try await SonosClient(accessToken: token.accessToken).groups()
+            status = sonosGroups.isEmpty ? "No Sonos groups were found." : "Found \(sonosGroups.count) Sonos group(s)."
+        } catch {
+            status = "Could not load Sonos groups: \(error.localizedDescription)"
+        }
+    }
+
+    func selectSonosGroup(_ groupID: String?) {
+        var updated = settings
+        updated.sonosGroupID = groupID
+        store.save(updated.trimmed)
+        lastMediaKeyGroupID = groupID
+        currentTrack = nil
+        startedAt = nil
+        if isRunning { Task { await pollNow() } }
+    }
+
     func pollNow() async {
         guard isConfigured else { return }
         do {
             let token = try await validSonosToken()
-            let track = try await SonosClient(accessToken: token.accessToken).currentlyPlaying()
-            guard let track else { status = "Sonos is not playing anything."; return }
+            let track = try await SonosClient(accessToken: token.accessToken).currentlyPlaying(preferredGroupID: settings.sonosGroupID)
+            guard let track else {
+                // Reset the listening session: a resumed track must not inherit time
+                // that passed while Sonos was paused or idle.
+                currentTrack = nil
+                startedAt = nil
+                status = "Sonos is not playing anything."
+                return
+            }
             if track != currentTrack { currentTrack = track; startedAt = Date(); status = "Playback detected"; try await LastFMClient(settings: settings).updateNowPlaying(track) }
             await scrobbleIfDue(track)
         } catch { status = "Error: \(error.localizedDescription)" }
@@ -265,9 +309,14 @@ private extension AppSettings {
             sonosClientID: sonosClientID.trimmingCharacters(in: .whitespacesAndNewlines),
             sonosClientSecret: sonosClientSecret.trimmingCharacters(in: .whitespacesAndNewlines),
             sonosRefreshToken: sonosRefreshToken.trimmingCharacters(in: .whitespacesAndNewlines),
+            sonosGroupID: sonosGroupID?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty,
             lastFMKey: lastFMKey.trimmingCharacters(in: .whitespacesAndNewlines),
             lastFMSecret: lastFMSecret.trimmingCharacters(in: .whitespacesAndNewlines),
             lastFMSession: lastFMSession.trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
+}
+
+private extension String {
+    var nonEmpty: String? { isEmpty ? nil : self }
 }
